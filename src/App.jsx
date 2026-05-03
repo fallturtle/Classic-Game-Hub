@@ -4,7 +4,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
-const firebaseConfig = {};
+const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -398,7 +398,73 @@ function GameSetup({ gameId, navigate, setGameMode, openSocialForInvite, profile
   
   const { hostGame, joinGame, isConnecting } = useCloudMatchmaking(profile);
 
-  // ... (keep the "if (setupView === 'online')" block exactly as it is) ...
+  if (setupView === 'online') {
+    return (
+      <div className="animate-in fade-in zoom-in-95 duration-300 max-w-5xl mx-auto mt-12 relative">
+        <button onClick={() => setSetupView('main')} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors bg-slate-800 px-4 py-2 rounded-lg mb-8">
+          <ArrowLeft className="w-4 h-4" /> Back to Local
+        </button>
+        
+        <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl text-center">
+          <h2 className="text-3xl font-bold text-white mb-6">Online Multiplayer Lobby</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-slate-900 p-6 rounded-2xl border-2 border-indigo-500/30 flex flex-col justify-between">
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-2">Host a Game</h3>
+                    <p className="text-sm text-slate-400 mb-6">Create a room and share the code manually.</p>
+                </div>
+                <button onClick={async () => {
+                    const code = await hostGame(gameId);
+                    setGameMode('online-host');
+                    navigate(gameId, gameId, code);
+                }} disabled={isConnecting} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all">
+                    {isConnecting ? 'Creating...' : 'Generate Code'}
+                </button>
+            </div>
+
+            <div className="bg-slate-900 p-6 rounded-2xl border-2 border-cyan-500/30 flex flex-col justify-between">
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-2">Join a Game</h3>
+                    <p className="text-sm text-slate-400 mb-6">Enter a 5-character code to join a room.</p>
+                </div>
+                <div>
+                    <input 
+                        type="text" 
+                        placeholder="ARC9X" 
+                        value={joinCode}
+                        onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                        maxLength={5}
+                        className="w-full bg-slate-800 border border-slate-700 focus:border-cyan-500 rounded-xl px-4 py-3 text-white font-bold text-center mb-4 outline-none uppercase tracking-widest"
+                    />
+                    <button onClick={async () => {
+                        const joinedGameId = await joinGame(joinCode);
+                        if (joinedGameId) {
+                            setGameMode('online-client');
+                            navigate(joinedGameId, joinedGameId, joinCode);
+                        } else {
+                            alert("Invalid Room Code.");
+                        }
+                    }} disabled={joinCode.length < 5 || isConnecting} className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all">
+                        {isConnecting ? 'Joining...' : 'Join Room'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-slate-900 p-6 rounded-2xl border-2 border-purple-500/30 flex flex-col justify-between">
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-2">Invite via DM</h3>
+                    <p className="text-sm text-slate-400 mb-6">Send a direct request to a friend's inbox.</p>
+                </div>
+                <button onClick={() => openSocialForInvite(gameId)} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                    <Send className="w-4 h-4" /> Open Friends List
+                </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in zoom-in-95 duration-300 max-w-4xl mx-auto mt-12">
@@ -431,20 +497,22 @@ function GameSetup({ gameId, navigate, setGameMode, openSocialForInvite, profile
             </div>
           </button>
 
-          {/* ONLINE BUTTON - DISABLED WITH FUTURE UPDATE STICKER */}
+          {/* ONLINE BUTTON - DISABLED WITH FUTURE UPDATE STICKER FOR POOL AND PONG */}
           <button 
-            onClick={() => null} 
-            className="flex flex-col items-center justify-center gap-4 p-8 bg-slate-900 rounded-2xl border-2 border-slate-800 opacity-60 cursor-not-allowed transition-all group relative overflow-hidden"
+            onClick={() => (gameId === 'pool' || gameId === 'pong') ? null : setSetupView('online')} 
+            className={`flex flex-col items-center justify-center gap-4 p-8 bg-slate-900 rounded-2xl border-2 transition-all group relative overflow-hidden ${(gameId === 'pool' || gameId === 'pong') ? 'border-slate-800 opacity-60 cursor-not-allowed' : 'border-slate-700 hover:border-cyan-500 hover:bg-slate-800'}`}
           >
-            <div className="absolute top-5 right-[-30px] bg-amber-500 text-black text-[10px] font-extrabold uppercase tracking-wider px-10 py-1.5 rotate-45 shadow-lg">
-                Future Update
-            </div>
+            {(gameId === 'pool' || gameId === 'pong') && (
+                <div className="absolute top-5 right-[-30px] bg-amber-500 text-black text-[10px] font-extrabold uppercase tracking-wider px-10 py-1.5 rotate-45 shadow-lg">
+                    Future Update
+                </div>
+            )}
             <div className="flex gap-2">
-              <Grid className="w-12 h-12 text-slate-600 transition-colors" />
+              <Grid className={`w-12 h-12 transition-colors ${(gameId === 'pool' || gameId === 'pong') ? 'text-slate-600' : 'text-slate-400 group-hover:text-cyan-400'}`} />
             </div>
             <div className="text-center">
               <h3 className="text-xl font-bold text-white mb-1">Online Match</h3>
-              <p className="text-sm text-slate-400">Multiplayer coming soon.</p>
+              <p className="text-sm text-slate-400">{(gameId === 'pool' || gameId === 'pong') ? 'Multiplayer coming soon.' : 'Host or Join a game with a friend.'}</p>
             </div>
           </button>
 
@@ -518,20 +586,6 @@ function PoolGame({ navigate, mode, settings, roomId, playerProfile }) {
       }, 1000);
       return () => clearInterval(id);
   }, [turn, gameState, playerColor, winner, mode, roomId]);
-
-  useEffect(() => {
-      if (!playerColor || winner || gameState !== 'aiming') return;
-      const id = setInterval(() => {
-          setTimeLeft(t => {
-              if (t <= 1) {
-                  setTurn(prev => prev === 'Player 1' ? (mode === 'pvai' ? 'Computer' : 'Player 2') : 'Player 1');
-                  return 30;
-              }
-              return t - 1;
-          });
-      }, 1000);
-      return () => clearInterval(id);
-  }, [turn, gameState, playerColor, winner, mode]);
 
   useEffect(() => {
     stateRef.current.turn = turn;
@@ -613,7 +667,7 @@ function PoolGame({ navigate, mode, settings, roomId, playerProfile }) {
                        !mode.startsWith('online');
       
       if (!isMyTurn) {
-          balls = stateRef.current.balls; // FIX: Update local reference so draw() sees DB updates
+          balls = stateRef.current.balls;
           return;
       }
 
@@ -875,7 +929,6 @@ function ChessGame({ navigate, mode, settings, roomId }) {
       const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'arcade_rooms', roomId), (snap) => {
           if (snap.exists() && snap.data().state) {
               const st = snap.data().state;
-              // FIX: Use JSON.parse to decode the nested array from the database string safely
               if (st.board) setBoard(typeof st.board === 'string' ? JSON.parse(st.board) : st.board);
               setTurn(st.turn);
               setGameStatus(st.gameStatus);
@@ -988,10 +1041,9 @@ function ChessGame({ navigate, mode, settings, roomId }) {
     setGameStatus(newStatus);
 
     if (mode.startsWith('online')) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'arcade_rooms', roomId), {
-            // FIX: Stringify the nested board array so Firebase allows it to be saved!
+        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'arcade_rooms', roomId), {
             state: { board: JSON.stringify(newBoard), turn: nextTurn, gameStatus: newStatus, wTime, bTime }
-        });
+        }).catch(e => console.error("Chess sync error:", e));
     }
   };
 
